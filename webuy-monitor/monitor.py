@@ -42,6 +42,29 @@ def search(cfg, query, category_ids=None):
             return out
 
 
+def _first(d, keys, default=None):
+    for k in keys:
+        if d.get(k) is not None:
+            return d[k]
+    return default
+
+
+def store_stock(cfg, box_id):
+    """{nombre_tienda: cantidad} para un producto, combinando varios puntos de origen."""
+    out = {}
+    for lat, lon in cfg.get("store_origins", [[19.43, -99.13], [20.67, -103.35], [25.67, -100.31]]):
+        url = f"{cfg['api_base']}/v3/boxes/{urllib.parse.quote(str(box_id))}/neareststores?" + \
+              urllib.parse.urlencode({"latitude": lat, "longitude": lon})
+        d = fetch_json(url).get("response", {}).get("data", {})
+        for st in _first(d, ["stores", "nearestStores", "storeStock"], []) or []:
+            name = _first(st, ["storeName", "name", "branchName"])
+            qty = _first(st, ["quantityOnHand", "qtyOnHand", "quantity", "stock"], 0)
+            if name:
+                out[name] = int(qty or 0)
+    only = cfg.get("only_stores")
+    return {k: v for k, v in out.items() if not only or k in only}
+
+
 def in_stock(b):
     if b.get("outOfStock") in (1, True) or b.get("outOfEcomStock") in (1, True):
         return False
@@ -87,6 +110,7 @@ def notify(cfg, title, body, url=None):
 def open_db(path):
     db = sqlite3.connect(path)
     db.execute("CREATE TABLE IF NOT EXISTS seen (id TEXT PRIMARY KEY, name TEXT, price REAL, in_stock INT, updated TEXT)")
+    db.execute("CREATE TABLE IF NOT EXISTS qty (id TEXT, k TEXT, qty INT, PRIMARY KEY(id,k))")
     return db
 
 
@@ -99,17 +123,33 @@ def check_once(cfg, db, first_run_silent=True):
         term = w if isinstance(w, str) else w["query"]
         cats = None if isinstance(w, str) else w.get("category_ids")
         max_price = None if isinstance(w, str) else w.get("max_price")
-        for b in search(cfg, term, cats):
+        for i, b in enumerate(search(cfg, term, cats)):
             p = product(b)
             row = db.execute("SELECT in_stock FROM seen WHERE id=?", (p["id"],)).fetchone()
             was = None if row is None else bool(row[0])
-            if p["in_stock"] and not was and not (prior_empty and first_run_silent):
-                if max_price is None or (p["price"] or 0) <= max_price:
-                    notify(cfg, f"¡Disponible! {p['name']}",
-                           f"${p['price']} MXN — {'NUEVO' if was is None else 'volvió a stock'}"
-                           f" (cant: {p['qty']})",
-                           f"{base}/product-detail?id={p['id']}")
-                    alerts += 1
+            silent = prior_empty and first_run_silent
+            cur = {}
+            if p["qty"] is not None:
+                cur["online"] = int(p["qty"])
+            if i < cfg.get("max_store_lookups", 20):
+                try:
+                    cur.update({f"tienda: {k}": v for k, v in store_stock(cfg, p["id"]).items()})
+                except Exception as e:
+                    log(f"Sin datos de tiendas para {p['id']}: {e}")
+            lines = []
+            for k, n in cur.items():
+                r = db.execute("SELECT qty FROM qty WHERE id=? AND k=?", (p["id"], k)).fetchone()
+                old = 0 if r is None else r[0]
+                if n > old:
+                    lines.append(f"{k}: {old} → {n}")
+                db.execute("INSERT OR REPLACE INTO qty VALUES (?,?,?)", (p["id"], k, n))
+            if not lines and p["in_stock"] and not was and "online" not in cur:
+                lines.append("disponible")  # sin cantidades: usa solo el cambio de estado
+            if lines and not silent and (max_price is None or (p["price"] or 0) <= max_price):
+                notify(cfg, f"¡Más stock! {p['name']}",
+                       f"${p['price']} MXN\n" + "\n".join(lines),
+                       f"{base}/product-detail?id={p['id']}")
+                alerts += 1
             db.execute("INSERT OR REPLACE INTO seen VALUES (?,?,?,?,?)",
                        (p["id"], p["name"], p["price"], int(p["in_stock"]), datetime.now().isoformat()))
         db.commit()

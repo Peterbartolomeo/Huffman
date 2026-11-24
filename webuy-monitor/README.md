@@ -19,3 +19,9 @@ Ya incluido en `.github/workflows/webuy-monitor.yml`. Edita `watch.json` con tus
 agrega en *Settings → Secrets and variables → Actions* el secreto `NTFY_TOPIC`
 (o `TELEGRAM_TOKEN` + `TELEGRAM_CHAT_ID`). Madrugada CDMX: revisa cada 30 s casi sin parar;
 resto del día: cada hora. Gratis en repos públicos; en privados consume minutos del plan.
+
+## Stock por tienda
+Además del stock online, consulta la disponibilidad por tienda (la sección "disponibilidad
+en tienda" del producto) y alerta cuando **sube** la cantidad en cualquiera
+(ej. `tienda: Polanco: 0 → 3`). Opciones en el JSON: `only_stores` (lista de tiendas que te
+interesan), `store_origins` (coordenadas lat/lon desde donde consultar), `max_store_lookups`.
