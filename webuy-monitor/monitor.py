@@ -24,21 +24,22 @@ def fetch_json(url, timeout=20):
         return json.load(r)
 
 
-def search(cfg, query, category_ids=None):
+def search(cfg, query, category_ids=None, limit=None):
     """Devuelve la lista de productos (dicts) para un término de búsqueda."""
     out, first, page = [], 1, 50
     while True:
-        params = {"q": query, "firstRecord": first, "count": page,
-                  "sortBy": "prod_cat_name", "sortOrder": "desc"}
+        params = {"q": query, "firstRecord": first, "count": page}
+        params.update(cfg.get("sort_params", {}))  # opcional, ej. {"sortBy": "...", "sortOrder": "desc"}
         if category_ids:
             params["categoryIds"] = ",".join(map(str, category_ids))
+        time.sleep(cfg.get("request_delay_seconds", 0.2))  # cortesía con el sitio
         data = fetch_json(cfg["api_base"] + "/v3/boxes?" + urllib.parse.urlencode(params))
         d = data.get("response", {}).get("data", {})
         boxes = d.get("boxes") or []
         out += boxes
         total = d.get("totalRecords", len(boxes))
         first += page
-        if not boxes or first > total or first > cfg.get("max_results", 500):
+        if not boxes or first > total or first > (limit or cfg.get("max_results", 500)):
             return out
 
 
@@ -120,20 +121,24 @@ def check_once(cfg, db, first_run_silent=True):
     """Una pasada completa. Devuelve cuántas alertas se enviaron."""
     base = cfg["site_base"]
     alerts = 0
-    prior_empty = db.execute("SELECT COUNT(*) FROM seen").fetchone()[0] == 0
+    db.execute("CREATE TABLE IF NOT EXISTS queries (term TEXT PRIMARY KEY)")
     for w in cfg["watch"]:
-        term = w if isinstance(w, str) else w["query"]
-        cats = None if isinstance(w, str) else w.get("category_ids")
-        max_price = None if isinstance(w, str) else w.get("max_price")
-        for i, b in enumerate(search(cfg, term, cats)):
+        w = {"query": w} if isinstance(w, str) else w
+        term, cats, max_price = w.get("query", ""), w.get("category_ids"), w.get("max_price")
+        key = f"{term}|{cats}"
+        # Cada búsqueda nueva memoriza su stock actual en silencio la primera vez
+        silent = first_run_silent and not db.execute("SELECT 1 FROM queries WHERE term=?", (key,)).fetchone()
+        lookups = 0
+        for b in search(cfg, term, cats, w.get("max_results")):
             p = product(b)
             row = db.execute("SELECT in_stock FROM seen WHERE id=?", (p["id"],)).fetchone()
             was = None if row is None else bool(row[0])
-            silent = prior_empty and first_run_silent
             cur = {}
             if p["qty"] is not None:
                 cur["online"] = int(p["qty"])
-            if i < cfg.get("max_store_lookups", 20):
+            # Tiendas: solo para productos con stock y hasta un tope por pasada
+            if p["in_stock"] and lookups < w.get("max_store_lookups", cfg.get("max_store_lookups", 20)):
+                lookups += 1
                 try:
                     cur.update({f"tienda: {k}": v for k, v in store_stock(cfg, p["id"]).items()})
                 except Exception as e:
@@ -154,6 +159,7 @@ def check_once(cfg, db, first_run_silent=True):
                 alerts += 1
             db.execute("INSERT OR REPLACE INTO seen VALUES (?,?,?,?,?)",
                        (p["id"], p["name"], p["price"], int(p["in_stock"]), datetime.now().isoformat()))
+        db.execute("INSERT OR IGNORE INTO queries VALUES (?)", (key,))
         db.commit()
     return alerts
 
@@ -208,7 +214,10 @@ def main():
             continue
         if "--once" in sys.argv or (duration and time.time() >= deadline):
             return
-        time.sleep(interval(cfg))
+        wait = interval(cfg)
+        if duration and time.time() + wait > deadline:
+            return  # no cabe otra pasada en esta ejecución; la siguiente la retoma
+        time.sleep(wait)
 
 
 if __name__ == "__main__":
