@@ -33,4 +33,7 @@ assert monitor.check_once(cfg, db) == 1                     # sube stock en tien
 assert monitor.check_once(cfg, db) == 0
 STATE["pol"] = 2
 assert monitor.check_once(cfg, db) == 0                     # bajar no alerta
+cfg["watch"].append({"query": "", "category_ids": [1]})
+n = len(sent)
+assert monitor.check_once(cfg, db) == 0 and len(sent) == n   # búsqueda nueva: silenciosa
 print("OK", sent)
