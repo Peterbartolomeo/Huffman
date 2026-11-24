@@ -127,7 +127,15 @@ def interval(cfg):
 def main():
     with open(CONFIG_PATH) as f:
         cfg = json.load(f)
-    db = open_db(os.path.join(HERE, "state.db"))
+    # Secretos de notificación desde variables de entorno (GitHub Secrets)
+    env = {"ntfy_topic": "NTFY_TOPIC", "telegram_token": "TELEGRAM_TOKEN",
+           "telegram_chat_id": "TELEGRAM_CHAT_ID"}
+    for k, v in env.items():
+        if os.environ.get(v):
+            cfg.setdefault("notify", {})[k] = os.environ[v]
+    db = open_db(os.environ.get("WEBUY_STATE", os.path.join(HERE, "state.db")))
+    duration = int(sys.argv[sys.argv.index("--duration") + 1]) if "--duration" in sys.argv else 0
+    deadline = time.time() + duration
     down_since = None
     log(f"Monitor iniciado. Vigilando: {cfg['watch']}")
     while True:
@@ -146,9 +154,13 @@ def main():
                 down_since = datetime.now()
                 log(f"Sitio no responde ({e}). Reintentando cada "
                     f"{cfg.get('retry_when_down_seconds', 30)}s — probable carga de stock.")
+            if "--once" in sys.argv:
+                sys.exit(1)
+            if duration and time.time() >= deadline:
+                return
             time.sleep(cfg.get("retry_when_down_seconds", 30))
             continue
-        if "--once" in sys.argv:
+        if "--once" in sys.argv or (duration and time.time() >= deadline):
             return
         time.sleep(interval(cfg))
 

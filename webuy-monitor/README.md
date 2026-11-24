@@ -13,3 +13,9 @@ Si la página se cae (cargando stock), reintenta cada 30 s y alerta apenas regre
 
 La primera pasada solo memoriza el estado actual (no alerta por lo que ya estaba).
 Sin dependencias externas.
+
+## En GitHub Actions (sin PC encendida)
+Ya incluido en `.github/workflows/webuy-monitor.yml`. Edita `watch.json` con tus juegos y
+agrega en *Settings → Secrets and variables → Actions* el secreto `NTFY_TOPIC`
+(o `TELEGRAM_TOKEN` + `TELEGRAM_CHAT_ID`). Madrugada CDMX: revisa cada 30 s casi sin parar;
+resto del día: cada hora. Gratis en repos públicos; en privados consume minutos del plan.
