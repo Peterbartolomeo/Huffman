@@ -19,8 +19,8 @@
       "max_store_lookups": 40
     }
   ],
-  "day_interval_seconds": 300,
-  "night_interval_seconds": 300,
+  "day_interval_seconds": 600,
+  "night_interval_seconds": 600,
   "night_window": [
     0,
     8
