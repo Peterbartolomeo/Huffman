@@ -1,0 +1,24 @@
+{
+  "site_base": "https://mx.webuy.com",
+  "api_base": "https://wss2.cex.mx.webuy.io",
+  "watch": [
+    {
+      "url": "https://mx.webuy.com/search/?categoryIds=824&categoryName=Playstation2+Juegos&sortBy=prod_cex_mx_price_desc"
+    },
+    {
+      "url": "https://mx.webuy.com/search/?categoryIds=821&categoryName=PS3+Juegos&sortBy=prod_cex_mx_price_desc"
+    }
+  ],
+  "day_interval_seconds": 600,
+  "night_interval_seconds": 600,
+  "night_window": [
+    0,
+    8
+  ],
+  "retry_when_down_seconds": 120,
+  "notify": {
+    "ntfy_topic": "PON-AQUI-TU-TEMA-DE-NTFY"
+  },
+  "disable_store_lookups": true,
+  "headless": false
+}
