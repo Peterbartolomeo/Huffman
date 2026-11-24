@@ -24,6 +24,9 @@ def fetch_json(url, timeout=20):
         return json.load(r)
 
 
+SEARCH = None  # si está definido, reemplaza a search() (modo navegador)
+
+
 def search(cfg, query, category_ids=None, limit=None):
     """Devuelve la lista de productos (dicts) para un término de búsqueda."""
     out, first, page = [], 1, 50
@@ -74,8 +77,10 @@ def in_stock(b):
 
 
 def product(b):
-    return {"id": str(b["boxId"]), "name": b.get("boxName", "?"),
-            "price": b.get("sellPrice"), "qty": b.get("ecomQuantityOnHand"),
+    return {"id": str(_first(b, ["boxId", "objectID"])),
+            "name": _first(b, ["boxName", "name"], "?"),
+            "price": _first(b, ["sellPrice", "price"]),
+            "qty": _first(b, ["ecomQuantityOnHand", "quantityOnHand"]),
             "in_stock": in_stock(b), "category": b.get("categoryFriendlyName", "")}
 
 
@@ -129,7 +134,7 @@ def check_once(cfg, db, first_run_silent=True):
         # Cada búsqueda nueva memoriza su stock actual en silencio la primera vez
         silent = first_run_silent and not db.execute("SELECT 1 FROM queries WHERE term=?", (key,)).fetchone()
         lookups = 0
-        for b in search(cfg, term, cats, w.get("max_results")):
+        for b in (SEARCH(cfg, w) if SEARCH else search(cfg, term, cats, w.get("max_results"))):
             p = product(b)
             row = db.execute("SELECT in_stock FROM seen WHERE id=?", (p["id"],)).fetchone()
             was = None if row is None else bool(row[0])
@@ -137,7 +142,7 @@ def check_once(cfg, db, first_run_silent=True):
             if p["qty"] is not None:
                 cur["online"] = int(p["qty"])
             # Tiendas: solo para productos con stock y hasta un tope por pasada
-            if p["in_stock"] and lookups < w.get("max_store_lookups", cfg.get("max_store_lookups", 20)):
+            if p["in_stock"] and not cfg.get("disable_store_lookups") and lookups < w.get("max_store_lookups", cfg.get("max_store_lookups", 20)):
                 lookups += 1
                 try:
                     cur.update({f"tienda: {k}": v for k, v in store_stock(cfg, p["id"]).items()})
