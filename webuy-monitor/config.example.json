@@ -1,0 +1,18 @@
+{
+  "site_base": "https://mx.webuy.com",
+  "api_base": "https://wss2.cex.mx.webuy.io",
+  "watch": [
+    "zelda tears of the kingdom",
+    {"query": "god of war", "max_price": 600}
+  ],
+  "day_interval_seconds": 300,
+  "night_interval_seconds": 60,
+  "night_window": [0, 8],
+  "retry_when_down_seconds": 30,
+  "notify": {
+    "ntfy_topic": "pon-aqui-un-nombre-secreto-largo",
+    "telegram_token": "",
+    "telegram_chat_id": "",
+    "smtp_host": "", "smtp_user": "", "smtp_password": "", "email_to": ""
+  }
+}
