@@ -32,6 +32,7 @@ def search(cfg, query, category_ids=None, limit=None):
         params.update(cfg.get("sort_params", {}))  # opcional, ej. {"sortBy": "...", "sortOrder": "desc"}
         if category_ids:
             params["categoryIds"] = ",".join(map(str, category_ids))
+        time.sleep(cfg.get("request_delay_seconds", 0.2))  # cortesía con el sitio
         data = fetch_json(cfg["api_base"] + "/v3/boxes?" + urllib.parse.urlencode(params))
         d = data.get("response", {}).get("data", {})
         boxes = d.get("boxes") or []
@@ -213,7 +214,10 @@ def main():
             continue
         if "--once" in sys.argv or (duration and time.time() >= deadline):
             return
-        time.sleep(interval(cfg))
+        wait = interval(cfg)
+        if duration and time.time() + wait > deadline:
+            return  # no cabe otra pasada en esta ejecución; la siguiente la retoma
+        time.sleep(wait)
 
 
 if __name__ == "__main__":
