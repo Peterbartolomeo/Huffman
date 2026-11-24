@@ -28,8 +28,8 @@ def search(cfg, query, category_ids=None, limit=None):
     """Devuelve la lista de productos (dicts) para un término de búsqueda."""
     out, first, page = [], 1, 50
     while True:
-        params = {"q": query, "firstRecord": first, "count": page,
-                  "sortBy": "prod_cat_name", "sortOrder": "desc"}
+        params = {"q": query, "firstRecord": first, "count": page}
+        params.update(cfg.get("sort_params", {}))  # opcional, ej. {"sortBy": "...", "sortOrder": "desc"}
         if category_ids:
             params["categoryIds"] = ",".join(map(str, category_ids))
         data = fetch_json(cfg["api_base"] + "/v3/boxes?" + urllib.parse.urlencode(params))
