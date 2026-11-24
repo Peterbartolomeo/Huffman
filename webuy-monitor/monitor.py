@@ -87,8 +87,10 @@ def notify(cfg, title, body, url=None):
             req = urllib.request.Request(
                 f"{n.get('ntfy_server', 'https://ntfy.sh')}/{n['ntfy_topic']}",
                 data=body.encode(), method="POST",
-                headers={"Title": title.encode("utf-8").decode("latin-1", "ignore"),
-                         "Priority": "urgent", "Click": url or ""})
+                headers={k: v for k, v in {
+                    "Title": title.encode("latin-1", "ignore").decode("latin-1"),
+                    "Priority": "urgent", "Tags": "video_game,rotating_light",
+                    "Click": url}.items() if v})
             urllib.request.urlopen(req, timeout=15)
         if n.get("telegram_token") and n.get("telegram_chat_id"):
             data = urllib.parse.urlencode({"chat_id": n["telegram_chat_id"],
@@ -173,6 +175,10 @@ def main():
     for k, v in env.items():
         if os.environ.get(v):
             cfg.setdefault("notify", {})[k] = os.environ[v]
+    if "--test" in sys.argv:
+        notify(cfg, "Prueba del monitor", "Si ves esto en tu celular, las alertas funcionan.",
+               cfg["site_base"])
+        return
     db = open_db(os.environ.get("WEBUY_STATE", os.path.join(HERE, "state.db")))
     duration = int(sys.argv[sys.argv.index("--duration") + 1]) if "--duration" in sys.argv else 0
     deadline = time.time() + duration

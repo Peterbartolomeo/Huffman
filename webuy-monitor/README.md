@@ -25,3 +25,12 @@ Además del stock online, consulta la disponibilidad por tienda (la sección "di
 en tienda" del producto) y alerta cuando **sube** la cantidad en cualquiera
 (ej. `tienda: Polanco: 0 → 3`). Opciones en el JSON: `only_stores` (lista de tiendas que te
 interesan), `store_origins` (coordenadas lat/lon desde donde consultar), `max_store_lookups`.
+
+## Alertas en el celular (ntfy, 2 minutos)
+1. Instala la app **ntfy** (Android / iPhone) y permite notificaciones.
+2. Toca "+" y suscríbete a un tema con nombre largo e impredecible, ej. `juegos-peter-7x9k2q41`.
+   (Quien conozca el nombre puede leerlo: no uses algo obvio.)
+3. Pon ese mismo nombre en el secreto `NTFY_TOPIC` de GitHub (o `ntfy_topic` en `config.json`).
+4. Prueba: pestaña Actions → webuy-monitor → *Run workflow* con "test" activado,
+   o local: `python3 monitor.py --test`. Debe sonar el celular.
+Las alertas llegan con prioridad urgente y al tocarlas abren el producto.
