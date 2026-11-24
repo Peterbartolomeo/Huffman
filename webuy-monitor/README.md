@@ -1,6 +1,6 @@
 # Monitor de stock mx.webuy.com
 
-Revisa cada minuto (de 00:00 a 08:00; cada 5 min el resto del día) tus juegos y te
+Revisa cada 10 min (de 00:00 a 08:00; cada 10 min) tus juegos y te
 manda una alerta **en cuanto pasan a disponible**, antes del correo oficial de las 7:30.
 Si la página se cae (cargando stock), reintenta cada 30 s y alerta apenas regrese.
 
